@@ -1,3 +1,6 @@
+OVERVIEW
+---------
+
 This repository provides function to easly create multilayer perceptrons in pytorch for either
 classification or regression tasks. Each layer of the multilayer perceptron is composed of
 
