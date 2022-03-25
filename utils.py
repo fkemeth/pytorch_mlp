@@ -48,15 +48,20 @@ class DenseStack(torch.nn.Module):
 
         in_features = num_in_features
         for out_features in [*num_hidden_features, num_out_features]:
+            # Add fully connected layer
             self.fc_layers.append(nn.Linear(in_features, out_features))
+            # Add batchnorm layer, if desired
             if use_batch_norm:
                 self.bn_layers.append(nn.BatchNorm1d(out_features))
+            # Add dropout layer, if desired
             if dropout_rate:
                 self.dropout_layers.append(nn.Dropout(dropout_rate))
+            # Add activation function
             self.acts.append(nn.GELU())
             in_features = out_features
             self.num_out_features = out_features
 
+        # Transform to pytorch list modules
         self.fc_layers = nn.ModuleList(self.fc_layers)
         self.bn_layers = nn.ModuleList(self.bn_layers)
         self.dropout_layers = nn.ModuleList(self.dropout_layers)
