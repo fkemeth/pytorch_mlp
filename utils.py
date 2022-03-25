@@ -29,6 +29,12 @@ class ListModule(nn.Module):
         return len(self._modules)
 
 
+def progress(train_loss, val_loss):
+    return "Train/Loss: {:.8f} " \
+           "Val/Loss: {:.8f}" \
+           .format(train_loss, val_loss)
+
+
 class Swish(nn.Module):
     """
     Nonlinear swishactivation function.
@@ -51,38 +57,47 @@ class DenseStack(torch.nn.Module):
     """
 
     def __init__(self, num_in_features, num_out_features, num_hidden_features,
-                 use_batch_norm=False):
+                 use_batch_norm=False, dropout_rate=False):
         super().__init__()
         self.use_batch_norm = use_batch_norm
+        self.dropout_rate = dropout_rate
 
         fc_layers = []
         bn_layers = []
+        dropout_layers = []
         acts = []
 
         in_features = num_in_features
         for out_features in [*num_hidden_features, num_out_features]:
             fc_layers.append(nn.Linear(in_features, out_features))
-            bn_layers.append(nn.BatchNorm1d(out_features))
+            if use_batch_norm:
+                bn_layers.append(nn.BatchNorm1d(out_features))
+            if dropout_rate:
+                dropout_layers.append(nn.Dropout(dropout_rate))
             acts.append(Swish())
             in_features = out_features
             self.num_out_features = out_features
 
         self.fc_layers = ListModule(*fc_layers)
         self.bn_layers = ListModule(*bn_layers)
+        self.dropout_layers = ListModule(*dropout_layers)
         self.acts = ListModule(*acts)
 
     def forward(self, input_tensor):
         """Forward pass through dense stack."""
-        for fully_connect, batch_norm, activation in zip(self.fc_layers, self.bn_layers, self.acts):
-            input_tensor = fully_connect(input_tensor)
+        for i_layer in range(len(self.fc_layers)):
+            input_tensor = self.fc_layers[i_layer](input_tensor)
+            if self.dropout_rate and (1 <= i_layer < len(self.fc_layers)-1):
+                input_tensor = self.dropout_layers[i_layer](input_tensor)
             if self.use_batch_norm:
-                input_tensor = batch_norm(input_tensor)
-            input_tensor = activation(input_tensor)
+                input_tensor = self.bn_layers[i_layer](input_tensor)
+            if i_layer < len(self.fc_layers)-1:
+                input_tensor = self.acts[i_layer](input_tensor)
         return input_tensor
 
 
 class Model:
-    def __init__(self, dataloader_train, dataloader_val, network, config, path):
+    def __init__(self, dataloader_train, dataloader_val, network, classification=True, path=None):
         super().__init__()
         self.base_path = path
 
@@ -90,21 +105,26 @@ class Model:
         self.dataloader_val = dataloader_val
 
         self.net = network
-        self.device = self.net.device
+        if torch.cuda.is_available():
+            self.device = 'cuda'
+        else:
+            self.device = 'cpu'
         print('Using:', self.device)
         self.net = self.net.to(self.device)
 
-        self.learning_rate = float(config["lr"])
+        self.learning_rate = 0.01
 
-        self.criterion = nn.MSELoss(reduction='sum').to(self.device)
+        if classification:
+            self.criterion = nn.CrossEntropyLoss().to(self.device)
+        else:
+            self.criterion = nn.MSELoss().to(self.device)
 
         self.optimizer = torch.optim.Adam(
             self.net.parameters(),
             lr=self.learning_rate)
 
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, patience=int(config["patience"]),
-            factor=float(config["reduce_factor"]), min_lr=1e-7)
+            self.optimizer, patience=25, factor=0.5, min_lr=1e-7)
 
     def train(self):
         """
@@ -118,21 +138,15 @@ class Model:
         self.net = self.net.train()
 
         sum_loss, cnt = 0, 0
-        for (data, delta_x, target, param) in self.dataloader_train:
+        for (data, target) in self.dataloader_train:
             data = data.to(self.device)
-            delta_x = delta_x.to(self.device)
             target = target.to(self.device)
-            if self.net.use_param:
-                param = param.to(self.device)
 
             # backward
             self.optimizer.zero_grad()
 
             # forward
-            if self.net.use_param:
-                output = self.net(data, delta_x, param)
-            else:
-                output = self.net(data, delta_x)
+            output = self.net(data)
 
             # compute loss
             loss = self.criterion(output, target)
@@ -164,18 +178,12 @@ class Model:
         sum_loss, cnt = 0, 0
         with torch.no_grad():
             # for batch_idx, (data, target) in enumerate(self.dataloader_val):
-            for (data, delta_x, target, param) in self.dataloader_val:
+            for (data, target) in self.dataloader_val:
                 data = data.to(self.device)
-                delta_x = delta_x.to(self.device)
                 target = target.to(self.device)
-                if self.net.use_param:
-                    param = param.to(self.device)
 
                 # forward
-                if self.net.use_param:
-                    output = self.net(data, delta_x, param)
-                else:
-                    output = self.net(data, delta_x)
+                output = self.net(data)
 
                 # loss / accuracy
                 sum_loss += self.criterion(output, target)
