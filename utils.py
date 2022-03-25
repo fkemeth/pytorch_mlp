@@ -62,7 +62,7 @@ class DenseStack(torch.nn.Module):
         self.dropout_layers = nn.ModuleList(self.dropout_layers)
         self.acts = nn.ModuleList(self.acts)
 
-    def forward(self, input_tensor):
+    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
         """
         Forward pass through fully connected neural network.
 
@@ -139,14 +139,13 @@ class Model:
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer, patience=25, factor=0.5, min_lr=1e-7)
 
-    def train(self):
+    def train(self) -> float:
         """
         Train model over one epoch.
 
         Returns
         -------
-        avg_loss: float
-            Loss averaged over the training data
+        Loss averaged over the training data
         """
         self.net = self.net.train()
 
@@ -173,7 +172,7 @@ class Model:
 
         return sum_loss / cnt
 
-    def validate(self):
+    def validate(self) -> float:
         """
         Validate model on validation set.
 
@@ -183,8 +182,7 @@ class Model:
 
         Returns
         -------
-        avg_loss: float
-            Loss averaged over the validation data
+        Loss averaged over the validation data
         """
         self.net = self.net.eval()
 
@@ -207,32 +205,29 @@ class Model:
 
         return sum_loss / cnt
 
-    def save_network(self, name: str):
+    def save_network(self, name: str) -> str:
         """
         Save model to disk.
 
         Arguments
         -------
-        name: str
-            Model filename.
+        name         - Model filename.
 
         Returns
         -------
-        name: str
-            Model filename.
+        Model filename.
         """
         model_file_name = self.base_path+name
         torch.save(self.net.state_dict(), model_file_name)
         return name
 
-    def load_network(self, name: str):
+    def load_network(self, name: str) -> None:
         """
         Load model from disk.
 
         Arguments
         -------
-        name: str
-            Model filename.
+        name         - Model filename.
         """
         model_file_name = self.base_path+name
         self.net.load_state_dict(torch.load(model_file_name))
