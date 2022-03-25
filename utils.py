@@ -62,41 +62,58 @@ class DenseStack(torch.nn.Module):
         self.use_batch_norm = use_batch_norm
         self.dropout_rate = dropout_rate
 
-        fc_layers = []
-        bn_layers = []
-        dropout_layers = []
-        acts = []
+        self.fc_layers = []
+        self.bn_layers = []
+        self.dropout_layers = []
+        self.acts = []
 
         in_features = num_in_features
         for out_features in [*num_hidden_features, num_out_features]:
-            fc_layers.append(nn.Linear(in_features, out_features))
+            self.fc_layers.append(nn.Linear(in_features, out_features))
             if use_batch_norm:
-                bn_layers.append(nn.BatchNorm1d(out_features))
+                self.bn_layers.append(nn.BatchNorm1d(out_features))
             if dropout_rate:
-                dropout_layers.append(nn.Dropout(dropout_rate))
-            acts.append(Swish())
+                self.dropout_layers.append(nn.Dropout(dropout_rate))
+            self.acts.append(Swish())
             in_features = out_features
             self.num_out_features = out_features
 
-        self.fc_layers = ListModule(*fc_layers)
-        self.bn_layers = ListModule(*bn_layers)
-        self.dropout_layers = ListModule(*dropout_layers)
-        self.acts = ListModule(*acts)
+        self.fc_layers = ListModule(*self.fc_layers)
+        self.bn_layers = ListModule(*self.bn_layers)
+        self.dropout_layers = ListModule(*self.dropout_layers)
+        self.acts = ListModule(*self.acts)
 
     def forward(self, input_tensor):
         """Forward pass through dense stack."""
         for i_layer in range(len(self.fc_layers)):
+            # Fully connected layer
             input_tensor = self.fc_layers[i_layer](input_tensor)
+            # Use dropout, but note after first and last layer
             if self.dropout_rate and (1 <= i_layer < len(self.fc_layers)-1):
                 input_tensor = self.dropout_layers[i_layer](input_tensor)
-            if self.use_batch_norm:
+            # Use batchnorm after each layer, but not after last
+            if self.use_batch_norm and (i_layer < len(self.fc_layers)-1):
                 input_tensor = self.bn_layers[i_layer](input_tensor)
+            # Apply activation function, but not after last layer
             if i_layer < len(self.fc_layers)-1:
                 input_tensor = self.acts[i_layer](input_tensor)
         return input_tensor
 
 
 class Model:
+    """
+    Wrapper around neural network.
+
+    Includes functions to train and validate network.
+
+    Arguments:
+    dataloader_train          - Dataloader with training data
+    dataloader_val            - Dataloader with validation or test data
+    network                   - PyTorch module with the network topology
+    classification            - If true, use cross entropy loss
+    path                      - Path where the model should be saved
+    """
+
     def __init__(self, dataloader_train, dataloader_val, network, classification=True, path=None):
         super().__init__()
         self.base_path = path
@@ -105,6 +122,8 @@ class Model:
         self.dataloader_val = dataloader_val
 
         self.net = network
+
+        # Use gpu if available
         if torch.cuda.is_available():
             self.device = 'cuda'
         else:
@@ -115,14 +134,19 @@ class Model:
         self.learning_rate = 0.01
 
         if classification:
+            # Cross entropy loss function
+            # Note that this includes softmax function
             self.criterion = nn.CrossEntropyLoss().to(self.device)
         else:
+            # Mean squared error loss function
             self.criterion = nn.MSELoss().to(self.device)
 
+        # Adam optimizer
         self.optimizer = torch.optim.Adam(
             self.net.parameters(),
             lr=self.learning_rate)
 
+        # Learning rate scheduler in case learning rate is too large
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer, patience=25, factor=0.5, min_lr=1e-7)
 
