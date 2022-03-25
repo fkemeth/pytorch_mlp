@@ -2,62 +2,41 @@ import torch
 import torch.nn as nn
 
 
-class ListModule(nn.Module):
+def progress(train_loss: float, val_loss: float) -> str:
     """
-    For creating PyTorch modules from lists.
+    Create progress bar description.
+
+    Arguments
+    -------
+    train_loss     - Training loss
+    val_loss       - Validation or test loss
+
+    Returns
+    -------
+    String with training and test loss
     """
-
-    def __init__(self, *args):
-        super().__init__()
-        idx = 0
-        for module in args:
-            self.add_module(str(idx), module)
-            idx += 1
-
-    def __getitem__(self, idx):
-        if idx < 0 or idx >= len(self._modules):
-            raise IndexError('index {} is out of range'.format(idx))
-        iterator = iter(self._modules.values())
-        for _ in range(idx):
-            next(iterator)
-        return next(iterator)
-
-    def __iter__(self):
-        return iter(self._modules.values())
-
-    def __len__(self):
-        return len(self._modules)
-
-
-def progress(train_loss, val_loss):
     return "Train/Loss: {:.8f} " \
            "Val/Loss: {:.8f}" \
            .format(train_loss, val_loss)
 
 
-class Swish(nn.Module):
-    """
-    Nonlinear swishactivation function.
-    """
-
-    def forward(self, input_tensor):
-        """Forward pass through activation function."""
-        return input_tensor * torch.sigmoid(input_tensor)
-
-
 class DenseStack(torch.nn.Module):
     """
-    Fully connected neural network composed of three layers.
-    The first two layers are followed by a Swish activation function.
+    Fully connected neural network.
 
-    Arguments:
-    num_in_features (int)     - Number of input features
-    num_out_features (int)    - Number of output features
-    num_hidden_features (int) - Number of nodes in each hidden layer (optinal, deault: 64)
+    Arguments
+    -------
+    num_in_features     - Number of input features
+    num_out_features    - Number of output features
+    num_hidden_features - List of nodes in each hidden layer
+    use_batch_norm      - If to use batch norm
+    dropout_rate        - If, and with which rate, to use dropout
     """
 
-    def __init__(self, num_in_features, num_out_features, num_hidden_features,
-                 use_batch_norm=False, dropout_rate=False):
+    def __init__(self, num_in_features: int, num_out_features: int,
+                 num_hidden_features: list,
+                 use_batch_norm: bool = False,
+                 dropout_rate: float = 0.0):
         super().__init__()
         self.use_batch_norm = use_batch_norm
         self.dropout_rate = dropout_rate
@@ -74,17 +53,27 @@ class DenseStack(torch.nn.Module):
                 self.bn_layers.append(nn.BatchNorm1d(out_features))
             if dropout_rate:
                 self.dropout_layers.append(nn.Dropout(dropout_rate))
-            self.acts.append(Swish())
+            self.acts.append(nn.GELU())
             in_features = out_features
             self.num_out_features = out_features
 
-        self.fc_layers = ListModule(*self.fc_layers)
-        self.bn_layers = ListModule(*self.bn_layers)
-        self.dropout_layers = ListModule(*self.dropout_layers)
-        self.acts = ListModule(*self.acts)
+        self.fc_layers = nn.ModuleList(self.fc_layers)
+        self.bn_layers = nn.ModuleList(self.bn_layers)
+        self.dropout_layers = nn.ModuleList(self.dropout_layers)
+        self.acts = nn.ModuleList(self.acts)
 
     def forward(self, input_tensor):
-        """Forward pass through dense stack."""
+        """
+        Forward pass through fully connected neural network.
+
+        Arguments
+        -------
+        input_tensor        - Tensor with input features
+
+        Returns
+        -------
+        Output prediction tensor
+        """
         for i_layer in range(len(self.fc_layers)):
             # Fully connected layer
             input_tensor = self.fc_layers[i_layer](input_tensor)
@@ -218,7 +207,7 @@ class Model:
 
         return sum_loss / cnt
 
-    def save_network(self, name):
+    def save_network(self, name: str):
         """
         Save model to disk.
 
@@ -236,7 +225,7 @@ class Model:
         torch.save(self.net.state_dict(), model_file_name)
         return name
 
-    def load_network(self, name):
+    def load_network(self, name: str):
         """
         Load model from disk.
 

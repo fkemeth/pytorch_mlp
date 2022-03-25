@@ -19,7 +19,7 @@ def main():
     dataloader_train = torch.utils.data.DataLoader(dataset_train, batch_size=256, shuffle=True)
     dataloader_test = torch.utils.data.DataLoader(dataset_test, batch_size=256, shuffle=True)
 
-    network = DenseStack(int(28*28), 10, [64, 64, 64], use_batch_norm=True, dropout_rate=False)
+    network = DenseStack(int(28*28), 10, [64, 64, 64], use_batch_norm=True)
 
     model = Model(dataloader_train, dataloader_test, network, classification=True)
 
