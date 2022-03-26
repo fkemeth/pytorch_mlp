@@ -15,8 +15,8 @@ def progress(train_loss: float, val_loss: float) -> str:
     -------
     String with training and test loss
     """
-    return "Train/Loss: {:.8f} " \
-           "Val/Loss: {:.8f}" \
+    return 'Train/Loss: {:.8f} ' \
+           'Val/Loss: {:.8f}' \
            .format(train_loss, val_loss)
 
 

@@ -1,7 +1,6 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
-
 from tqdm.auto import tqdm
 
 from utils import DenseStack, Model, progress
@@ -30,5 +29,5 @@ def main():
         progress_bar.set_description(progress(train_loss, val_loss))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
