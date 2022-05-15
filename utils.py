@@ -166,7 +166,7 @@ class Model:
             output = self.net(data)
 
             # compute loss
-            loss = self.criterion(output, target)
+            loss = self.criterion(output, target).detach().cpu().numpy()
 
             loss.backward()
             self.optimizer.step()
@@ -202,7 +202,8 @@ class Model:
                 output = self.net(data)
 
                 # loss / accuracy
-                sum_loss += self.criterion(output, target)
+                sum_loss += self.criterion(output,
+                                           target).detach().cpu().numpy()
                 cnt += 1
 
         # Learning Rate reduction
