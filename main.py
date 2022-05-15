@@ -16,6 +16,8 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FO
 DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
+import configparser
+
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -24,16 +26,19 @@ from tqdm.auto import tqdm
 from utils import DenseStack, Model, progress
 
 
-def main():
+def main(config: configparser.ConfigParser):
     """
     Train a multilayer perceptron on MNIST dataset.
+
+    Args:
+        config: Config parser containing hyperparameters
     """
     transformations = [transforms.ToTensor(), transforms.Lambda(
         lambda x: torch.flatten(x))]
 
-    dataset_train = torchvision.datasets.MNIST('data/', train=True, download=True,
+    dataset_train = torchvision.datasets.MNIST(config['Data']['path'], train=True, download=True,
                                                transform=transforms.Compose(transformations))
-    dataset_test = torchvision.datasets.MNIST('data/', train=False, download=True,
+    dataset_test = torchvision.datasets.MNIST(config['Data']['path'], train=False, download=True,
                                               transform=transforms.Compose(transformations))
 
     dataloader_train = torch.utils.data.DataLoader(
@@ -42,7 +47,11 @@ def main():
         dataset_test, batch_size=256, shuffle=True)
 
     network = DenseStack(
-        int(28*28), 10, [64, 64, 64], use_batch_norm=True, dropout_rate=0.5)
+        cfg['Model'].getint('input_size'),
+        cfg['Model'].getint('output_size'),
+        eval(cfg['Model']['hidden_size']),
+        cfg['Model'].getboolean('use_batch_norm'),
+        cfg['Model'].getfloat('dropout_rate'))
 
     model = Model(dataloader_train, dataloader_test,
                   network, classification=True)
@@ -56,4 +65,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    cfg = configparser.ConfigParser()
+    cfg.read('config.cfg')
+    main(cfg)
