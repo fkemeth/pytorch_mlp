@@ -45,3 +45,8 @@ repos:
     hooks:
     - id: mypy
       additional_dependencies: [types-all]
+-   repo: https://github.com/econchick/interrogate
+    rev: 1.4.0
+    hooks:
+      - id: interrogate
+        args: ["-v", "-i"]

@@ -6,14 +6,12 @@ def progress(train_loss: float, val_loss: float) -> str:
     """
     Create progress bar description.
 
-    Arguments
-    -------
-    train_loss     - Training loss
-    val_loss       - Validation or test loss
+    Args:
+        train_loss: Training loss
+        val_loss: Validation or test loss
 
-    Returns
-    -------
-    String with training and test loss
+    Returns:
+        String with training and test loss
     """
     return 'Train/Loss: {:.8f} ' \
            'Val/Loss: {:.8f}' \
@@ -24,13 +22,12 @@ class DenseStack(torch.nn.Module):
     """
     Fully connected neural network.
 
-    Arguments
-    -------
-    num_in_features     - Number of input features
-    num_out_features    - Number of output features
-    num_hidden_features - List of nodes in each hidden layer
-    use_batch_norm      - If to use batch norm
-    dropout_rate        - If, and with which rate, to use dropout
+    Args:
+        num_in_features: Number of input features
+        num_out_features: Number of output features
+        num_hidden_features: List of nodes in each hidden layer
+        use_batch_norm: If to use batch norm
+        dropout_rate: If, and with which rate, to use dropout
     """
 
     def __init__(self, num_in_features: int, num_out_features: int,
@@ -71,13 +68,11 @@ class DenseStack(torch.nn.Module):
         """
         Forward pass through fully connected neural network.
 
-        Arguments
-        -------
-        input_tensor        - Tensor with input features
+        Args:
+            input_tensor: Tensor with input features
 
-        Returns
-        -------
-        Output prediction tensor
+        Returns:
+            Output prediction tensor
         """
         for i_layer in range(len(self.fc_layers)):
             # Fully connected layer
@@ -100,12 +95,12 @@ class Model:
 
     Includes functions to train and validate network.
 
-    Arguments:
-    dataloader_train          - Dataloader with training data
-    dataloader_val            - Dataloader with validation or test data
-    network                   - PyTorch module with the network topology
-    classification            - If true, use cross entropy loss
-    path                      - Path where the model should be saved
+    Args:
+        dataloader_train: Dataloader with training data
+        dataloader_val: Dataloader with validation or test data
+        network: PyTorch module with the network topology
+        classification: If true, use cross entropy loss
+        path: Path where the model should be saved
     """
 
     def __init__(self, dataloader_train, dataloader_val, network, classification=True, path=None):
@@ -148,9 +143,8 @@ class Model:
         """
         Train model over one epoch.
 
-        Returns
-        -------
-        Loss averaged over the training data
+        Returns:
+            Loss averaged over the training data
         """
         self.net = self.net.train()
 
@@ -185,9 +179,8 @@ class Model:
 
         Updates best accuracy.
 
-        Returns
-        -------
-        Loss averaged over the validation data
+        Returns:
+            Loss averaged over the validation data
         """
         self.net = self.net.eval()
 
@@ -215,13 +208,11 @@ class Model:
         """
         Save model to disk.
 
-        Arguments
-        -------
-        name         - Model filename.
+        Args:
+            name: Model filename.
 
-        Returns
-        -------
-        Model filename.
+        Returns:
+            Model filename.
         """
         model_file_name = self.base_path+name
         torch.save(self.net.state_dict(), model_file_name)
@@ -231,9 +222,8 @@ class Model:
         """
         Load model from disk.
 
-        Arguments
-        -------
-        name         - Model filename.
+        Args:
+            name: Model filename.
         """
         model_file_name = self.base_path+name
         self.net.load_state_dict(torch.load(model_file_name))
