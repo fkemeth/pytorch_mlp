@@ -166,13 +166,13 @@ class Model:
             output = self.net(data)
 
             # compute loss
-            loss = self.criterion(output, target).detach().cpu().numpy()
+            loss = self.criterion(output, target)
 
             loss.backward()
             self.optimizer.step()
 
             # measure accuracy on batch
-            sum_loss += loss
+            sum_loss += loss.detach().cpu().numpy()
             cnt += 1
 
         return sum_loss / cnt
