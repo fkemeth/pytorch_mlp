@@ -42,21 +42,17 @@ def main(config: configparser.ConfigParser):
                                               transform=transforms.Compose(transformations))
 
     dataloader_train = torch.utils.data.DataLoader(
-        dataset_train, batch_size=256, shuffle=True)
+        dataset_train, batch_size=config['Training'].getint('batch_size'), shuffle=True)
     dataloader_test = torch.utils.data.DataLoader(
-        dataset_test, batch_size=256, shuffle=True)
+        dataset_test, batch_size=config['Training'].getint('batch_size'), shuffle=True)
 
-    network = DenseStack(
-        cfg['Model'].getint('input_size'),
-        cfg['Model'].getint('output_size'),
-        eval(cfg['Model']['hidden_size']),
-        cfg['Model'].getboolean('use_batch_norm'),
-        cfg['Model'].getfloat('dropout_rate'))
+    network = DenseStack(cfg['Model'])
 
     model = Model(dataloader_train, dataloader_test,
-                  network, classification=True)
+                  network, config['Training'])
 
-    progress_bar = tqdm(range(0, 40), desc=progress(0, 0))
+    progress_bar = tqdm(
+        range(0, config['Training'].getint('epochs')), desc=progress(0, 0))
 
     for _ in progress_bar:
         train_loss = model.train()

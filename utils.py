@@ -16,8 +16,12 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FO
 DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
+from ast import literal_eval
+from configparser import SectionProxy
+
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 
 
 def progress(train_loss: float, val_loss: float) -> str:
@@ -36,41 +40,42 @@ def progress(train_loss: float, val_loss: float) -> str:
            .format(train_loss, val_loss)
 
 
-class DenseStack(torch.nn.Module):
+class DenseStack(nn.Module):
     """
     Fully connected neural network.
 
     Args:
-        num_in_features: Number of input features
-        num_out_features: Number of output features
-        num_hidden_features: List of nodes in each hidden layer
-        use_batch_norm: If to use batch norm
-        dropout_rate: If, and with which rate, to use dropout
+        config: Configparser section proxy with:
+            num_in_features: Number of input features
+            num_out_features: Number of output features
+            num_hidden_features: List of nodes in each hidden layer
+            use_batch_norm: If to use batch norm
+            dropout_rate: If, and with which rate, to use dropout
     """
 
-    def __init__(self, num_in_features: int, num_out_features: int,
-                 num_hidden_features: list,
-                 use_batch_norm: bool = False,
-                 dropout_rate: float = 0.0):
+    def __init__(self, config: SectionProxy) -> None:
         super().__init__()
-        self.use_batch_norm = use_batch_norm
-        self.dropout_rate = dropout_rate
+        self.use_batch_norm = config.getboolean('use_batch_norm')
+        self.dropout_rate = config.getfloat('dropout_rate')
 
         self.fc_layers = []
         self.bn_layers = []
         self.dropout_layers = []
         self.acts = []
 
-        in_features = num_in_features
-        for out_features in [*num_hidden_features, num_out_features]:
+        in_features = config.getint('input_size')
+        # List containing number of hidden and output neurons
+        list_of_out_features = [
+            *literal_eval(config['hidden_size']), config.getint('output_size')]
+        for out_features in list_of_out_features:
             # Add fully connected layer
             self.fc_layers.append(nn.Linear(in_features, out_features))
             # Add batchnorm layer, if desired
-            if use_batch_norm:
+            if self.use_batch_norm:
                 self.bn_layers.append(nn.BatchNorm1d(out_features))
             # Add dropout layer, if desired
-            if dropout_rate:
-                self.dropout_layers.append(nn.Dropout(dropout_rate))
+            if self.dropout_rate:
+                self.dropout_layers.append(nn.Dropout(self.dropout_rate))
             # Add activation function
             self.acts.append(nn.GELU())
             in_features = out_features
@@ -118,12 +123,14 @@ class Model:
         dataloader_val: Dataloader with validation or test data
         network: PyTorch module with the network topology
         classification: If true, use cross entropy loss
-        path: Path where the model should be saved
     """
 
-    def __init__(self, dataloader_train, dataloader_val, network, classification=True, path=None):
+    def __init__(self,
+                 dataloader_train: DataLoader,
+                 dataloader_val: DataLoader,
+                 network: nn.Module,
+                 config: SectionProxy):
         super().__init__()
-        self.base_path = path
 
         self.dataloader_train = dataloader_train
         self.dataloader_val = dataloader_val
@@ -138,9 +145,7 @@ class Model:
         print('Using:', self.device)
         self.net = self.net.to(self.device)
 
-        self.learning_rate = 0.01
-
-        if classification:
+        if config.get_boolean('classification'):
             # Cross entropy loss function
             # Note that this includes softmax function
             self.criterion = nn.CrossEntropyLoss().to(self.device)
@@ -151,11 +156,14 @@ class Model:
         # Adam optimizer
         self.optimizer = torch.optim.Adam(
             self.net.parameters(),
-            lr=self.learning_rate)
+            lr=config.getfloat('learning_rate'))
 
         # Learning rate scheduler in case learning rate is too large
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, patience=25, factor=0.5, min_lr=1e-7)
+            self.optimizer,
+            patience=config.getint('scheduler_patience'),
+            factor=config.getfloat('scheduler_factor'),
+            min_lr=config.getfloat('scheduler_min_lr'))
 
     def train(self) -> float:
         """
@@ -222,26 +230,24 @@ class Model:
 
         return sum_loss / cnt
 
-    def save_network(self, name: str) -> str:
+    def save_network(self, model_file_name: str) -> str:
         """
         Save model to disk.
 
         Args:
-            name: Model filename.
+            model_file_namee: Path and model filename.
 
         Returns:
             Model filename.
         """
-        model_file_name = self.base_path+name
         torch.save(self.net.state_dict(), model_file_name)
-        return name
+        return model_file_name
 
-    def load_network(self, name: str) -> None:
+    def load_network(self, model_file_name: str) -> None:
         """
         Load model from disk.
 
         Args:
-            name: Model filename.
+            model_file_name: Path and model filename.
         """
-        model_file_name = self.base_path+name
         self.net.load_state_dict(torch.load(model_file_name))
