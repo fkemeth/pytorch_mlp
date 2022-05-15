@@ -33,8 +33,9 @@ def main(config: configparser.ConfigParser):
     Args:
         config: Config parser containing hyperparameters
     """
-    transformations = [transforms.ToTensor(), transforms.Lambda(
-        lambda x: torch.flatten(x))]
+    # transformations = [transforms.ToTensor(), transforms.Lambda(
+    #     lambda x: torch.flatten(x))]
+    transformations = [transforms.ToTensor(), transforms.Lambda(torch.flatten)]
 
     dataset_train = torchvision.datasets.MNIST(config['Data']['path'], train=True, download=True,
                                                transform=transforms.Compose(transformations))

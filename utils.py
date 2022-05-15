@@ -145,7 +145,7 @@ class Model:
         print('Using:', self.device)
         self.net = self.net.to(self.device)
 
-        if config.get_boolean('classification'):
+        if config.getboolean('classification'):
             # Cross entropy loss function
             # Note that this includes softmax function
             self.criterion = nn.CrossEntropyLoss().to(self.device)
